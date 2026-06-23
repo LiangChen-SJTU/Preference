@@ -32,7 +32,7 @@ body {
 }
 
 .page {
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
 }
@@ -102,7 +102,7 @@ body {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 1fr 260px;
+  grid-template-columns: 1fr 240px;
   gap: 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -176,9 +176,10 @@ body {
   padding: 0.55rem 0.75rem;
   border: 1.5px solid var(--border);
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   background: white;
   cursor: pointer;
+  min-width: 0;
 }
 
 .preference-row select:focus {
@@ -328,6 +329,8 @@ body {
   padding: 0.65rem 0.875rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  word-break: break-word;
+  max-width: 280px;
 }
 
 .result-table th {

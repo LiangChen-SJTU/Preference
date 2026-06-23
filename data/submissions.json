@@ -1,4 +1,17 @@
 {
-  "submissions": [],
+  "submissions": [
+    {
+      "name": "1",
+      "preferences": [
+        "AIGC文字生成_文献阅读与科研探索题目",
+        "Prompt_Memory_RAG优化",
+        "wan2.1vace 数据集复现",
+        "剪辑功能驱动的局部重生成与续生成一致性",
+        "局部缺陷修复小参数图像模型课题",
+        "通用推理任务_多模型效果评估与成本预算分配工具"
+      ],
+      "updatedAt": "2026-06-23T14:02:39.751Z"
+    }
+  ],
   "assignment": null
 }
