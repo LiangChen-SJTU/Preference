@@ -1,7 +1,14 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { assignTopics, TOPICS, MAX_USERS, PEOPLE_PER_TOPIC } = require('./lib/assign');
+const {
+  assignTopics,
+  REGULAR_TOPICS,
+  OTHER_TOPIC,
+  MAX_USERS,
+  PEOPLE_PER_TOPIC,
+  isOtherChoice,
+} = require('./lib/assign');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,15 +30,29 @@ function validateSubmission(name, preferences) {
   if (!name || typeof name !== 'string' || !name.trim()) {
     return '请输入姓名';
   }
-  if (!Array.isArray(preferences) || preferences.length !== TOPICS.length) {
-    return `请选择全部 ${TOPICS.length} 个课题志愿`;
+  if (!Array.isArray(preferences) || preferences.length === 0) {
+    return '请填写志愿';
+  }
+
+  if (isOtherChoice(preferences)) {
+    if (preferences.length !== 1 || preferences[0] !== OTHER_TOPIC) {
+      return '选择「其他」时只需填写第一志愿';
+    }
+    return null;
+  }
+
+  if (preferences.length !== REGULAR_TOPICS.length) {
+    return `请选择全部 ${REGULAR_TOPICS.length} 个课题志愿`;
   }
   const unique = new Set(preferences);
-  if (unique.size !== TOPICS.length) {
+  if (unique.size !== REGULAR_TOPICS.length) {
     return '志愿不能重复，请确保每个课题只选一次';
   }
+  if (preferences.includes(OTHER_TOPIC)) {
+    return '「其他」只能作为第一志愿';
+  }
   for (const p of preferences) {
-    if (!TOPICS.includes(p)) {
+    if (!REGULAR_TOPICS.includes(p)) {
       return '包含无效的课题名称';
     }
   }
@@ -49,7 +70,12 @@ function tryAutoAssign(data) {
 }
 
 app.get('/api/config', (_req, res) => {
-  res.json({ topics: TOPICS, maxUsers: MAX_USERS, peoplePerTopic: PEOPLE_PER_TOPIC });
+  res.json({
+    topics: REGULAR_TOPICS,
+    otherTopic: OTHER_TOPIC,
+    maxUsers: MAX_USERS,
+    peoplePerTopic: PEOPLE_PER_TOPIC,
+  });
 });
 
 app.get('/api/status', (_req, res) => {
@@ -89,11 +115,12 @@ app.post('/api/submission', (req, res) => {
 
   const existingIdx = data.submissions.findIndex((s) => s.name === trimmedName);
   const now = new Date().toISOString();
+  const normalizedPrefs = isOtherChoice(preferences) ? [OTHER_TOPIC] : [...preferences];
 
   if (existingIdx >= 0) {
     data.submissions[existingIdx] = {
       name: trimmedName,
-      preferences: [...preferences],
+      preferences: normalizedPrefs,
       updatedAt: now,
     };
   } else {
@@ -102,7 +129,7 @@ app.post('/api/submission', (req, res) => {
     }
     data.submissions.push({
       name: trimmedName,
-      preferences: [...preferences],
+      preferences: normalizedPrefs,
       updatedAt: now,
     });
   }
@@ -123,7 +150,7 @@ app.get('/api/assignment', (_req, res) => {
   if (!data.assignment) {
     return res.status(404).json({
       error: data.submissions.length < MAX_USERS
-        ? `还需 ${MAX_USERS - data.submissions.length} 人填写完毕才能分配`
+        ? `还需 ${MAX_USERS - data.submissions.length} 人填写完毕才能分配，或使用强制分配`
         : '分配尚未完成',
     });
   }
@@ -133,6 +160,25 @@ app.get('/api/assignment', (_req, res) => {
 app.post('/api/reset', (_req, res) => {
   writeData({ submissions: [], assignment: null });
   res.json({ success: true });
+});
+
+app.post('/api/assign', (_req, res) => {
+  const data = readData();
+
+  if (data.assignment) {
+    return res.status(403).json({ error: '分配已完成，请先重置' });
+  }
+  if (data.submissions.length === 0) {
+    return res.status(400).json({ error: '暂无提交数据，无法分配' });
+  }
+
+  try {
+    data.assignment = assignTopics(data.submissions, { force: true });
+    writeData(data);
+    res.json({ success: true, assignment: data.assignment });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {

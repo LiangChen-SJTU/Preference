@@ -69,6 +69,21 @@
       </div>
       <div class="topic-stats" id="topicStats"></div>
     </section>
+
+    <section class="admin-panel card">
+      <button type="button" class="admin-toggle" id="adminToggle" aria-expanded="false">
+        <span>管理</span>
+        <span class="admin-chevron">▼</span>
+      </button>
+      <div class="admin-content" id="adminContent">
+        <p class="admin-hint">重置将清空所有志愿；强制分配会立即按当前人数分配（无需满 30 人）。</p>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-secondary" id="resetBtn">重置</button>
+          <button type="button" class="btn btn-warning" id="forceAssignBtn">强制分配</button>
+        </div>
+        <p class="form-message" id="adminMessage"></p>
+      </div>
+    </section>
   </div>
 
   <script src="app.js"></script>

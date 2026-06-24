@@ -1,4 +1,4 @@
-let config = { topics: [], maxUsers: 30, peoplePerTopic: 5 };
+let config = { topics: [], otherTopic: '其他', maxUsers: 30, peoplePerTopic: 5 };
 let currentPreferences = [];
 
 const els = {
@@ -17,6 +17,11 @@ const els = {
   resultBody: document.getElementById('resultBody'),
   topicStats: document.getElementById('topicStats'),
   formCard: document.querySelector('.form-card'),
+  adminToggle: document.getElementById('adminToggle'),
+  adminContent: document.getElementById('adminContent'),
+  resetBtn: document.getElementById('resetBtn'),
+  forceAssignBtn: document.getElementById('forceAssignBtn'),
+  adminMessage: document.getElementById('adminMessage'),
 };
 
 async function fetchJSON(url, options) {
@@ -35,13 +40,25 @@ function clearMessage() {
   els.formMessage.className = 'form-message';
 }
 
+function showAdminMessage(text, type = 'info') {
+  els.adminMessage.textContent = text;
+  els.adminMessage.className = `form-message show ${type}`;
+}
+
+function isOtherSelected() {
+  return currentPreferences[0] === config.otherTopic;
+}
+
 function buildPreferenceRows(selected = []) {
   els.preferenceList.innerHTML = '';
   currentPreferences = [];
 
+  const otherSelected = selected[0] === config.otherTopic;
+
   for (let i = 0; i < config.topics.length; i++) {
     const row = document.createElement('div');
     row.className = 'preference-row';
+    row.dataset.rank = i;
 
     const rankLabel = document.createElement('span');
     rankLabel.className = `pref-rank rank-${Math.min(i + 1, 2)}`;
@@ -55,20 +72,26 @@ function buildPreferenceRows(selected = []) {
     emptyOpt.textContent = '— 请选择 —';
     select.appendChild(emptyOpt);
 
-    config.topics.forEach((topic) => {
+    const options = i === 0 ? [...config.topics, config.otherTopic] : config.topics;
+    options.forEach((topic) => {
       const opt = document.createElement('option');
       opt.value = topic;
       opt.textContent = topic;
       select.appendChild(opt);
     });
 
-    if (selected[i]) {
+    if (otherSelected && i > 0) {
+      select.disabled = true;
+    } else if (selected[i]) {
       select.value = selected[i];
       currentPreferences[i] = selected[i];
     }
 
     select.addEventListener('change', () => {
       currentPreferences[i] = select.value;
+      if (i === 0) {
+        applyOtherMode(select.value === config.otherTopic);
+      }
       updateSelectOptions();
     });
 
@@ -77,14 +100,32 @@ function buildPreferenceRows(selected = []) {
     els.preferenceList.appendChild(row);
   }
 
+  if (otherSelected) {
+    applyOtherMode(true);
+  }
   updateSelectOptions();
 }
 
+function applyOtherMode(enabled) {
+  const rows = els.preferenceList.querySelectorAll('.preference-row');
+  rows.forEach((row, idx) => {
+    if (idx === 0) return;
+    const select = row.querySelector('select');
+    select.disabled = enabled;
+    if (enabled) {
+      select.value = '';
+      currentPreferences[idx] = '';
+    }
+  });
+}
+
 function updateSelectOptions() {
-  const selects = els.preferenceList.querySelectorAll('select');
+  if (isOtherSelected()) return;
+
+  const selects = els.preferenceList.querySelectorAll('select:not([disabled])');
   const used = new Set(currentPreferences.filter(Boolean));
 
-  selects.forEach((select, idx) => {
+  selects.forEach((select) => {
     const currentVal = select.value;
     Array.from(select.options).forEach((opt) => {
       if (!opt.value) return;
@@ -95,6 +136,9 @@ function updateSelectOptions() {
 }
 
 function getPreferencesFromForm() {
+  if (isOtherSelected()) {
+    return [config.otherTopic];
+  }
   const selects = els.preferenceList.querySelectorAll('select');
   return Array.from(selects).map((s) => s.value);
 }
@@ -134,9 +178,11 @@ function updateProgress(status) {
   if (status.hasAssignment) {
     els.formCard.classList.add('locked-overlay');
     els.submitBtn.disabled = true;
+    els.forceAssignBtn.disabled = true;
   } else {
     els.formCard.classList.remove('locked-overlay');
     els.submitBtn.disabled = false;
+    els.forceAssignBtn.disabled = status.count === 0;
   }
 }
 
@@ -156,7 +202,7 @@ function renderAssignment(assignment) {
       ${assignment.topicStats.map((t) => `
         <div class="topic-stat-item">
           <div class="topic-name">${escapeHtml(t.topic)}（${t.count} 人）</div>
-          <div class="members">${escapeHtml(t.members.join('、'))}</div>
+          <div class="members">${escapeHtml(t.members.join('、') || '—')}</div>
           <div class="rank-detail">
             志愿分布：${t.rankCounts.map((c, i) => c ? `第${i + 1}志愿 ${c}人` : '').filter(Boolean).join(' · ') || '—'}
           </div>
@@ -233,6 +279,36 @@ async function loadAssignment() {
   }
 }
 
+async function resetAll() {
+  if (!confirm('确定重置？所有志愿与分配结果将被清空。')) return;
+
+  try {
+    await fetchJSON('/api/reset', { method: 'POST' });
+    els.userName.value = '';
+    buildPreferenceRows();
+    els.formTitle.textContent = '填写志愿';
+    clearMessage();
+    showAdminMessage('已重置，所有数据已清空', 'success');
+    els.resultCard.classList.add('hidden');
+    await refreshStatus();
+  } catch (err) {
+    showAdminMessage(err.message, 'error');
+  }
+}
+
+async function forceAssign() {
+  if (!confirm('确定强制分配？将按当前已提交人数立即分配，此操作不可撤销。')) return;
+
+  try {
+    await fetchJSON('/api/assign', { method: 'POST' });
+    showAdminMessage('强制分配完成', 'success');
+    await refreshStatus();
+    await loadAssignment();
+  } catch (err) {
+    showAdminMessage(err.message, 'error');
+  }
+}
+
 async function init() {
   config = await fetchJSON('/api/config');
   buildPreferenceRows();
@@ -244,6 +320,14 @@ async function init() {
 
   els.submitBtn.addEventListener('click', submitForm);
   els.loadBtn.addEventListener('click', () => loadSubmission());
+  els.resetBtn.addEventListener('click', resetAll);
+  els.forceAssignBtn.addEventListener('click', forceAssign);
+
+  els.adminToggle.addEventListener('click', () => {
+    const open = els.adminContent.classList.toggle('open');
+    els.adminToggle.setAttribute('aria-expanded', open);
+    els.adminToggle.querySelector('.admin-chevron').textContent = open ? '▲' : '▼';
+  });
 
   els.userName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadSubmission();

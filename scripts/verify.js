@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { assignTopics, TOPICS } = require('../lib/assign');
+const { assignTopics, REGULAR_TOPICS } = require('../lib/assign');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
 
@@ -42,7 +42,7 @@ const rng = seededRng(20260623);
 
 const submissions = Array.from({ length: 30 }, (_, i) => ({
   name: String(i + 1),
-  preferences: shuffle(TOPICS, rng),
+  preferences: shuffle(REGULAR_TOPICS, rng),
 }));
 
 const assignment = assignTopics(submissions);
@@ -50,7 +50,7 @@ const assignment = assignTopics(submissions);
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // 志愿表
-const prefHeader = ['姓名', ...TOPICS.map((_, i) => `第${i + 1}志愿`)];
+const prefHeader = ['姓名', ...REGULAR_TOPICS.map((_, i) => `第${i + 1}志愿`)];
 const prefRows = [
   prefHeader,
   ...submissions.map((s) => [s.name, ...s.preferences]),
