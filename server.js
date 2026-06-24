@@ -5,9 +5,11 @@ const {
   assignTopics,
   REGULAR_TOPICS,
   OTHER_TOPIC,
+  ANY_CHOICE,
   MAX_USERS,
   PEOPLE_PER_TOPIC,
   isOtherChoice,
+  hasAnyChoice,
 } = require('./lib/assign');
 const { registerTimeRoutes } = require('./lib/time-routes');
 
@@ -27,6 +29,15 @@ function writeData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+function normalizePreferences(preferences) {
+  if (isOtherChoice(preferences)) return [OTHER_TOPIC];
+  if (hasAnyChoice(preferences)) {
+    const anyIdx = preferences.indexOf(ANY_CHOICE);
+    return preferences.slice(0, anyIdx + 1);
+  }
+  return [...preferences];
+}
+
 function validateSubmission(name, preferences) {
   if (!name || typeof name !== 'string' || !name.trim()) {
     return '请输入姓名';
@@ -42,15 +53,34 @@ function validateSubmission(name, preferences) {
     return null;
   }
 
+  if (preferences.includes(OTHER_TOPIC)) {
+    return '「其他」只能作为第一志愿';
+  }
+
+  const anyIdx = preferences.indexOf(ANY_CHOICE);
+  if (anyIdx >= 0) {
+    if (preferences.length !== anyIdx + 1) {
+      return '选择「随便」后无需填写后续志愿';
+    }
+    const explicit = preferences.slice(0, anyIdx);
+    const unique = new Set(explicit);
+    if (unique.size !== explicit.length) {
+      return '志愿不能重复，请确保每个课题只选一次';
+    }
+    for (const p of explicit) {
+      if (!REGULAR_TOPICS.includes(p)) {
+        return '包含无效的课题名称';
+      }
+    }
+    return null;
+  }
+
   if (preferences.length !== REGULAR_TOPICS.length) {
-    return `请选择全部 ${REGULAR_TOPICS.length} 个课题志愿`;
+    return `请选择全部 ${REGULAR_TOPICS.length} 个课题志愿，或在某一志愿选择「随便」`;
   }
   const unique = new Set(preferences);
   if (unique.size !== REGULAR_TOPICS.length) {
     return '志愿不能重复，请确保每个课题只选一次';
-  }
-  if (preferences.includes(OTHER_TOPIC)) {
-    return '「其他」只能作为第一志愿';
   }
   for (const p of preferences) {
     if (!REGULAR_TOPICS.includes(p)) {
@@ -74,6 +104,7 @@ app.get('/api/config', (_req, res) => {
   res.json({
     topics: REGULAR_TOPICS,
     otherTopic: OTHER_TOPIC,
+    anyChoice: ANY_CHOICE,
     maxUsers: MAX_USERS,
     peoplePerTopic: PEOPLE_PER_TOPIC,
   });
@@ -116,7 +147,7 @@ app.post('/api/submission', (req, res) => {
 
   const existingIdx = data.submissions.findIndex((s) => s.name === trimmedName);
   const now = new Date().toISOString();
-  const normalizedPrefs = isOtherChoice(preferences) ? [OTHER_TOPIC] : [...preferences];
+  const normalizedPrefs = normalizePreferences(preferences);
 
   if (existingIdx >= 0) {
     data.submissions[existingIdx] = {

@@ -1,4 +1,4 @@
-let config = { topics: [], otherTopic: '其他', maxUsers: 30, peoplePerTopic: 5 };
+let config = { topics: [], otherTopic: '其他', anyChoice: '随便', maxUsers: 30, peoplePerTopic: 5 };
 let currentPreferences = [];
 let hasAssignment = false;
 
@@ -63,11 +63,16 @@ function isOtherSelected() {
   return currentPreferences[0] === config.otherTopic;
 }
 
+function getAnyIndex() {
+  return currentPreferences.indexOf(config.anyChoice);
+}
+
 function buildPreferenceRows(selected = []) {
   els.preferenceList.innerHTML = '';
   currentPreferences = [];
 
   const otherSelected = selected[0] === config.otherTopic;
+  const anyIdx = otherSelected ? -1 : selected.indexOf(config.anyChoice);
 
   for (let i = 0; i < config.topics.length; i++) {
     const row = document.createElement('div');
@@ -86,15 +91,28 @@ function buildPreferenceRows(selected = []) {
     emptyOpt.textContent = '— 请选择 —';
     select.appendChild(emptyOpt);
 
-    const options = i === 0 ? [...config.topics, config.otherTopic] : config.topics;
-    options.forEach((topic) => {
+    config.topics.forEach((topic) => {
       const opt = document.createElement('option');
       opt.value = topic;
       opt.textContent = topic;
       select.appendChild(opt);
     });
 
+    if (i === 0) {
+      const otherOpt = document.createElement('option');
+      otherOpt.value = config.otherTopic;
+      otherOpt.textContent = config.otherTopic;
+      select.appendChild(otherOpt);
+    }
+
+    const anyOpt = document.createElement('option');
+    anyOpt.value = config.anyChoice;
+    anyOpt.textContent = config.anyChoice;
+    select.appendChild(anyOpt);
+
     if (otherSelected && i > 0) {
+      select.disabled = true;
+    } else if (anyIdx >= 0 && i > anyIdx) {
       select.disabled = true;
     } else if (selected[i]) {
       select.value = selected[i];
@@ -103,8 +121,11 @@ function buildPreferenceRows(selected = []) {
 
     select.addEventListener('change', () => {
       currentPreferences[i] = select.value;
-      if (i === 0) {
-        applyOtherMode(select.value === config.otherTopic);
+      if (i === 0 && select.value === config.otherTopic) {
+        applyOtherMode(true);
+      } else {
+        applyOtherMode(false);
+        applyAnyMode(getAnyIndex());
       }
       updateSelectOptions();
     });
@@ -116,6 +137,8 @@ function buildPreferenceRows(selected = []) {
 
   if (otherSelected) {
     applyOtherMode(true);
+  } else if (anyIdx >= 0) {
+    applyAnyMode(anyIdx);
   }
   updateSelectOptions();
 }
@@ -125,10 +148,27 @@ function applyOtherMode(enabled) {
   rows.forEach((row, idx) => {
     if (idx === 0) return;
     const select = row.querySelector('select');
-    select.disabled = enabled;
     if (enabled) {
+      select.disabled = true;
       select.value = '';
       currentPreferences[idx] = '';
+    } else if (getAnyIndex() < 0) {
+      select.disabled = false;
+    }
+  });
+}
+
+function applyAnyMode(anyIndex) {
+  if (isOtherSelected()) return;
+  const rows = els.preferenceList.querySelectorAll('.preference-row');
+  rows.forEach((row, idx) => {
+    const select = row.querySelector('select');
+    if (anyIndex >= 0 && idx > anyIndex) {
+      select.disabled = true;
+      select.value = '';
+      currentPreferences[idx] = '';
+    } else if (!isOtherSelected()) {
+      select.disabled = false;
     }
   });
 }
@@ -137,12 +177,14 @@ function updateSelectOptions() {
   if (isOtherSelected()) return;
 
   const selects = els.preferenceList.querySelectorAll('select:not([disabled])');
-  const used = new Set(currentPreferences.filter(Boolean));
+  const used = new Set(
+    currentPreferences.filter((p) => p && p !== config.anyChoice && p !== config.otherTopic)
+  );
 
   selects.forEach((select) => {
     const currentVal = select.value;
     Array.from(select.options).forEach((opt) => {
-      if (!opt.value) return;
+      if (!opt.value || opt.value === config.anyChoice || opt.value === config.otherTopic) return;
       const takenByOther = used.has(opt.value) && opt.value !== currentVal;
       opt.disabled = takenByOther;
     });
@@ -154,7 +196,13 @@ function getPreferencesFromForm() {
     return [config.otherTopic];
   }
   const selects = els.preferenceList.querySelectorAll('select');
-  return Array.from(selects).map((s) => s.value);
+  const prefs = [];
+  for (const select of selects) {
+    if (!select.value) break;
+    prefs.push(select.value);
+    if (select.value === config.anyChoice) break;
+  }
+  return prefs;
 }
 
 function updateProgress(status) {
