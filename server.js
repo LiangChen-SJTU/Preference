@@ -145,6 +145,26 @@ app.post('/api/submission', (req, res) => {
   });
 });
 
+app.get('/api/assignment/:name', (req, res) => {
+  const data = readData();
+  if (!data.assignment) {
+    return res.status(404).json({ error: '分配尚未完成' });
+  }
+  const name = decodeURIComponent(req.params.name).trim();
+  const result = data.assignment.results.find((r) => r.name === name);
+  if (!result) {
+    return res.status(404).json({ error: '未找到您的分配结果，请确认姓名是否正确' });
+  }
+  const teammates = data.assignment.results
+    .filter((r) => r.assignedTopic === result.assignedTopic && r.name !== name)
+    .map((r) => r.name);
+  res.json({
+    name: result.name,
+    assignedTopic: result.assignedTopic,
+    teammates,
+  });
+});
+
 app.get('/api/assignment', (_req, res) => {
   const data = readData();
   if (!data.assignment) {

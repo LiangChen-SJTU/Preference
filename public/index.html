@@ -56,18 +56,24 @@
 
     <section class="card result-card hidden" id="resultCard">
       <h2>分配结果</h2>
-      <div class="result-table-wrap">
-        <table class="result-table" id="resultTable">
-          <thead>
-            <tr>
-              <th>姓名</th>
-              <th>分配明细</th>
-            </tr>
-          </thead>
-          <tbody id="resultBody"></tbody>
-        </table>
+      <div class="my-result-lookup">
+        <div class="form-group">
+          <label for="resultName">姓名</label>
+          <input type="text" id="resultName" placeholder="请输入您的姓名" maxlength="20" autocomplete="name">
+        </div>
+        <button type="button" class="btn btn-primary" id="viewResultBtn">查看我的分配</button>
       </div>
-      <div class="topic-stats" id="topicStats"></div>
+      <div class="my-result hidden" id="myResult">
+        <div class="my-result-item">
+          <span class="my-result-label">你的组别</span>
+          <span class="my-result-value" id="myAssignedTopic"></span>
+        </div>
+        <div class="my-result-item">
+          <span class="my-result-label">同组成员</span>
+          <span class="my-result-value" id="myTeammates"></span>
+        </div>
+      </div>
+      <p class="form-message" id="resultMessage"></p>
     </section>
 
     <section class="admin-panel card">

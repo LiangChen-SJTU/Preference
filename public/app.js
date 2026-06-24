@@ -1,5 +1,6 @@
 let config = { topics: [], otherTopic: '其他', maxUsers: 30, peoplePerTopic: 5 };
 let currentPreferences = [];
+let hasAssignment = false;
 
 const els = {
   filledCount: document.getElementById('filledCount'),
@@ -14,8 +15,12 @@ const els = {
   formMessage: document.getElementById('formMessage'),
   nameList: document.getElementById('nameList'),
   resultCard: document.getElementById('resultCard'),
-  resultBody: document.getElementById('resultBody'),
-  topicStats: document.getElementById('topicStats'),
+  resultName: document.getElementById('resultName'),
+  viewResultBtn: document.getElementById('viewResultBtn'),
+  myResult: document.getElementById('myResult'),
+  myAssignedTopic: document.getElementById('myAssignedTopic'),
+  myTeammates: document.getElementById('myTeammates'),
+  resultMessage: document.getElementById('resultMessage'),
   formCard: document.querySelector('.form-card'),
   adminToggle: document.getElementById('adminToggle'),
   adminContent: document.getElementById('adminContent'),
@@ -38,6 +43,15 @@ function showMessage(text, type = 'info') {
 
 function clearMessage() {
   els.formMessage.className = 'form-message';
+}
+
+function showResultMessage(text, type = 'info') {
+  els.resultMessage.textContent = text;
+  els.resultMessage.className = `form-message show ${type}`;
+}
+
+function clearResultMessage() {
+  els.resultMessage.className = 'form-message';
 }
 
 function showAdminMessage(text, type = 'info') {
@@ -144,6 +158,7 @@ function getPreferencesFromForm() {
 }
 
 function updateProgress(status) {
+  hasAssignment = status.hasAssignment;
   els.filledCount.textContent = status.count;
   els.maxCount.textContent = status.maxUsers;
   const pct = (status.count / status.maxUsers) * 100;
@@ -152,11 +167,13 @@ function updateProgress(status) {
   if (status.hasAssignment) {
     els.progressHint.textContent = '分配已完成，志愿已锁定';
     els.progressHint.style.color = 'var(--success)';
-  } else if (status.isFull) {
-    els.progressHint.textContent = '人数已满，正在分配…';
+    els.loadBtn.textContent = '查看我的分配';
   } else {
-    els.progressHint.textContent = `还需 ${status.maxUsers - status.count} 人填写完毕后将自动分配`;
+    els.progressHint.textContent = status.isFull
+      ? '人数已满，正在分配…'
+      : `还需 ${status.maxUsers - status.count} 人填写完毕后将自动分配`;
     els.progressHint.style.color = '';
+    els.loadBtn.textContent = '加载我的志愿';
   }
 
   els.nameList.innerHTML = '';
@@ -166,10 +183,15 @@ function updateProgress(status) {
     status.names.forEach((name) => {
       const li = document.createElement('li');
       li.textContent = name;
-      li.title = '点击加载该用户志愿';
+      li.title = status.hasAssignment ? '点击查看分配结果' : '点击加载该用户志愿';
       li.addEventListener('click', () => {
         els.userName.value = name;
-        loadSubmission(name);
+        els.resultName.value = name;
+        if (status.hasAssignment) {
+          showMyAssignment(name);
+        } else {
+          loadSubmission(name);
+        }
       });
       els.nameList.appendChild(li);
     });
@@ -179,36 +201,15 @@ function updateProgress(status) {
     els.formCard.classList.add('locked-overlay');
     els.submitBtn.disabled = true;
     els.forceAssignBtn.disabled = true;
+    els.resultCard.classList.remove('hidden');
   } else {
     els.formCard.classList.remove('locked-overlay');
     els.submitBtn.disabled = false;
     els.forceAssignBtn.disabled = status.count === 0;
+    els.resultCard.classList.add('hidden');
+    els.myResult.classList.add('hidden');
+    clearResultMessage();
   }
-}
-
-function renderAssignment(assignment) {
-  els.resultCard.classList.remove('hidden');
-
-  els.resultBody.innerHTML = assignment.results.map((r) => {
-    return `<tr>
-      <td><strong>${escapeHtml(r.name)}</strong></td>
-      <td>${escapeHtml(r.assignedTopic)}</td>
-    </tr>`;
-  }).join('');
-
-  els.topicStats.innerHTML = `
-    <h3>各课题分配详情</h3>
-    <div class="topic-stat-grid">
-      ${assignment.topicStats.map((t) => `
-        <div class="topic-stat-item">
-          <div class="topic-name">${escapeHtml(t.topic)}（${t.count} 人）</div>
-          <div class="members">${escapeHtml(t.members.join('、') || '—')}</div>
-          <div class="rank-detail">
-            志愿分布：${t.rankCounts.map((c, i) => c ? `第${i + 1}志愿 ${c}人` : '').filter(Boolean).join(' · ') || '—'}
-          </div>
-        </div>
-      `).join('')}
-    </div>`;
 }
 
 function escapeHtml(str) {
@@ -217,11 +218,40 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+async function showMyAssignment(name) {
+  clearResultMessage();
+  const trimmed = (name || els.resultName.value || els.userName.value).trim();
+  if (!trimmed) {
+    showResultMessage('请输入姓名', 'error');
+    return;
+  }
+
+  els.resultName.value = trimmed;
+
+  try {
+    const data = await fetchJSON(`/api/assignment/${encodeURIComponent(trimmed)}`);
+    els.myAssignedTopic.textContent = data.assignedTopic;
+    els.myTeammates.textContent = data.teammates.length
+      ? data.teammates.join('、')
+      : '无';
+    els.myResult.classList.remove('hidden');
+  } catch (err) {
+    els.myResult.classList.add('hidden');
+    showResultMessage(err.message, 'error');
+  }
+}
+
 async function loadSubmission(name) {
   clearMessage();
   const trimmed = (name || els.userName.value).trim();
   if (!trimmed) {
     showMessage('请先输入姓名', 'error');
+    return;
+  }
+
+  if (hasAssignment) {
+    els.resultName.value = trimmed;
+    await showMyAssignment(trimmed);
     return;
   }
 
@@ -253,11 +283,12 @@ async function submitForm() {
     const action = result.isUpdate ? '更新' : '提交';
     showMessage(`${action}成功！当前已有 ${result.count} / ${config.maxUsers} 人填写`, 'success');
     els.formTitle.textContent = '修改志愿';
+    els.resultName.value = name;
 
     await refreshStatus();
 
     if (result.hasAssignment) {
-      await loadAssignment();
+      await showMyAssignment(name);
     }
   } catch (err) {
     showMessage(err.message, 'error');
@@ -270,26 +301,19 @@ async function refreshStatus() {
   return status;
 }
 
-async function loadAssignment() {
-  try {
-    const assignment = await fetchJSON('/api/assignment');
-    renderAssignment(assignment);
-  } catch {
-    els.resultCard.classList.add('hidden');
-  }
-}
-
 async function resetAll() {
   if (!confirm('确定重置？所有志愿与分配结果将被清空。')) return;
 
   try {
     await fetchJSON('/api/reset', { method: 'POST' });
     els.userName.value = '';
+    els.resultName.value = '';
     buildPreferenceRows();
     els.formTitle.textContent = '填写志愿';
     clearMessage();
     showAdminMessage('已重置，所有数据已清空', 'success');
-    els.resultCard.classList.add('hidden');
+    els.myResult.classList.add('hidden');
+    clearResultMessage();
     await refreshStatus();
   } catch (err) {
     showAdminMessage(err.message, 'error');
@@ -303,7 +327,8 @@ async function forceAssign() {
     await fetchJSON('/api/assign', { method: 'POST' });
     showAdminMessage('强制分配完成', 'success');
     await refreshStatus();
-    await loadAssignment();
+    const name = els.resultName.value.trim() || els.userName.value.trim();
+    if (name) await showMyAssignment(name);
   } catch (err) {
     showAdminMessage(err.message, 'error');
   }
@@ -315,11 +340,13 @@ async function init() {
 
   const status = await refreshStatus();
   if (status.hasAssignment) {
-    await loadAssignment();
+    const name = els.userName.value.trim();
+    if (name) await showMyAssignment(name);
   }
 
   els.submitBtn.addEventListener('click', submitForm);
   els.loadBtn.addEventListener('click', () => loadSubmission());
+  els.viewResultBtn.addEventListener('click', () => showMyAssignment());
   els.resetBtn.addEventListener('click', resetAll);
   els.forceAssignBtn.addEventListener('click', forceAssign);
 
@@ -331,6 +358,10 @@ async function init() {
 
   els.userName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadSubmission();
+  });
+
+  els.resultName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') showMyAssignment();
   });
 }
 
