@@ -14,7 +14,6 @@ const els = {
   formMessage: document.getElementById('formMessage'),
   nameList: document.getElementById('nameList'),
   resultCard: document.getElementById('resultCard'),
-  summaryGrid: document.getElementById('summaryGrid'),
   resultBody: document.getElementById('resultBody'),
   topicStats: document.getElementById('topicStats'),
   formCard: document.querySelector('.form-card'),
@@ -144,24 +143,10 @@ function updateProgress(status) {
 function renderAssignment(assignment) {
   els.resultCard.classList.remove('hidden');
 
-  const labels = ['第一志愿', '第二志愿', '第三志愿', '第四志愿', '第五志愿', '第六志愿'];
-  els.summaryGrid.innerHTML = labels.map((label, i) => {
-    const key = ['firstChoice', 'secondChoice', 'thirdChoice', 'fourthChoice', 'fifthChoice', 'sixthChoice'][i];
-    const num = assignment.summary[key];
-    return `<div class="summary-item"><div class="num">${num}</div><div class="label">${label}</div></div>`;
-  }).join('');
-
   els.resultBody.innerHTML = assignment.results.map((r) => {
-    const prefs = r.preferences.map((p, i) => {
-      const mark = p === r.assignedTopic ? '★' : '';
-      return `${i + 1}.${p}${mark}`;
-    }).join(' → ');
-
     return `<tr>
       <td><strong>${escapeHtml(r.name)}</strong></td>
       <td>${escapeHtml(r.assignedTopic)}</td>
-      <td><span class="rank-badge r${r.assignedRank}">第 ${r.assignedRank} 志愿</span></td>
-      <td class="prefs-inline">${escapeHtml(prefs)}</td>
     </tr>`;
   }).join('');
 
