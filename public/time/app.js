@@ -316,14 +316,6 @@ async function forceAssign() {
 }
 
 async function init() {
-  config = await fetchJSON(`${API}/config`);
-  buildPreferenceRows();
-
-  const status = await refreshStatus();
-  if (status.hasAssignment) {
-    await loadAssignment();
-  }
-
   els.submitBtn.addEventListener('click', submitForm);
   els.loadBtn.addEventListener('click', () => loadSubmission());
   els.resetBtn.addEventListener('click', resetAll);
@@ -338,6 +330,18 @@ async function init() {
   els.userName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadSubmission();
   });
+
+  try {
+    config = await fetchJSON(`${API}/config`);
+    buildPreferenceRows();
+
+    const status = await refreshStatus();
+    if (status.hasAssignment) {
+      await loadAssignment();
+    }
+  } catch (err) {
+    showMessage(err.message || '加载失败，请刷新页面重试', 'error');
+  }
 }
 
 init();
