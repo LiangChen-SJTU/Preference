@@ -1,6 +1,6 @@
 const API = '/api/time';
 
-let config = { slots: [], maxUsers: 12 };
+let config = { slots: [], anyChoice: '随便', maxUsers: 12 };
 let currentPreferences = [];
 
 const els = {
@@ -47,9 +47,15 @@ function showAdminMessage(text, type = 'info') {
   els.adminMessage.className = `form-message show ${type}`;
 }
 
+function getAnyIndex() {
+  return currentPreferences.indexOf(config.anyChoice);
+}
+
 function buildPreferenceRows(selected = []) {
   els.preferenceList.innerHTML = '';
   currentPreferences = [];
+
+  const anyIdx = selected.indexOf(config.anyChoice);
 
   for (let i = 0; i < config.slots.length; i++) {
     const row = document.createElement('div');
@@ -74,13 +80,22 @@ function buildPreferenceRows(selected = []) {
       select.appendChild(opt);
     });
 
-    if (selected[i]) {
+    const anyOpt = document.createElement('option');
+    anyOpt.value = config.anyChoice;
+    anyOpt.textContent = config.anyChoice;
+    select.appendChild(anyOpt);
+
+    if (anyIdx >= 0 && i > anyIdx) {
+      select.disabled = true;
+    } else if (selected[i]) {
       select.value = selected[i];
       currentPreferences[i] = selected[i];
     }
 
     select.addEventListener('change', () => {
       currentPreferences[i] = select.value;
+      const anyAt = getAnyIndex();
+      applyAnyMode(anyAt);
       updateSelectOptions();
     });
 
@@ -89,17 +104,37 @@ function buildPreferenceRows(selected = []) {
     els.preferenceList.appendChild(row);
   }
 
+  if (anyIdx >= 0) {
+    applyAnyMode(anyIdx);
+  }
   updateSelectOptions();
 }
 
+function applyAnyMode(anyIndex) {
+  const rows = els.preferenceList.querySelectorAll('.preference-row');
+  rows.forEach((row, idx) => {
+    const select = row.querySelector('select');
+    if (anyIndex >= 0 && idx > anyIndex) {
+      select.disabled = true;
+      select.value = '';
+      currentPreferences[idx] = '';
+    } else {
+      select.disabled = false;
+    }
+  });
+}
+
 function updateSelectOptions() {
-  const selects = els.preferenceList.querySelectorAll('select');
-  const used = new Set(currentPreferences.filter(Boolean));
+  const anyAt = getAnyIndex();
+  const selects = els.preferenceList.querySelectorAll('select:not([disabled])');
+  const used = new Set(
+    currentPreferences.filter((p) => p && p !== config.anyChoice)
+  );
 
   selects.forEach((select) => {
     const currentVal = select.value;
     Array.from(select.options).forEach((opt) => {
-      if (!opt.value) return;
+      if (!opt.value || opt.value === config.anyChoice) return;
       const takenByOther = used.has(opt.value) && opt.value !== currentVal;
       opt.disabled = takenByOther;
     });
@@ -108,7 +143,13 @@ function updateSelectOptions() {
 
 function getPreferencesFromForm() {
   const selects = els.preferenceList.querySelectorAll('select');
-  return Array.from(selects).map((s) => s.value);
+  const prefs = [];
+  for (const select of selects) {
+    if (!select.value) break;
+    prefs.push(select.value);
+    if (select.value === config.anyChoice) break;
+  }
+  return prefs;
 }
 
 function updateProgress(status) {
