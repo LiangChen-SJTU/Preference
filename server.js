@@ -9,6 +9,7 @@ const {
   PEOPLE_PER_TOPIC,
   isOtherChoice,
 } = require('./lib/assign');
+const { registerTimeRoutes } = require('./lib/time-routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -201,6 +202,9 @@ app.post('/api/assign', (_req, res) => {
   }
 });
 
+registerTimeRoutes(app);
+
 app.listen(PORT, () => {
   console.log(`课题志愿系统运行在 http://localhost:${PORT}`);
+  console.log(`时段志愿系统运行在 http://localhost:${PORT}/time/`);
 });
