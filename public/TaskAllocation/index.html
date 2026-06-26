@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>任务分组志愿收集</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>任务分组志愿收集</h1>
+      <p class="subtitle">14 名用户 · 3 个任务方向</p>
+    </header>
+
+    <section class="progress-card" id="progressCard">
+      <div class="progress-info">
+        <span class="progress-label">已填写</span>
+        <span class="progress-count"><strong id="filledCount">0</strong> / <span id="maxCount">14</span></span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p class="progress-hint" id="progressHint">填写完成后系统将自动分配任务组</p>
+    </section>
+
+    <main class="main-grid">
+      <section class="card form-card">
+        <h2 id="formTitle">填写志愿</h2>
+
+        <div class="form-group">
+          <label for="userName">姓名</label>
+          <input type="text" id="userName" placeholder="请输入您的姓名" maxlength="20" autocomplete="name">
+        </div>
+
+        <div class="form-group">
+          <label>志愿顺序（第 1 志愿为最优先）</label>
+          <div class="preference-list" id="preferenceList"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="submitBtn">提交志愿</button>
+          <button type="button" class="btn btn-secondary" id="loadBtn">加载我的志愿</button>
+        </div>
+
+        <p class="form-message" id="formMessage"></p>
+      </section>
+
+      <section class="card side-card">
+        <h2>已提交名单</h2>
+        <ul class="name-list" id="nameList">
+          <li class="empty-hint">暂无提交</li>
+        </ul>
+      </section>
+    </main>
+
+    <section class="card result-card hidden" id="resultCard">
+      <h2>分组结果</h2>
+      <div class="group-stats" id="groupStats"></div>
+    </section>
+
+    <section class="admin-panel card">
+      <button type="button" class="admin-toggle" id="adminToggle" aria-expanded="false">
+        <span>管理</span>
+        <span class="admin-chevron">▼</span>
+      </button>
+      <div class="admin-content" id="adminContent">
+        <p class="admin-hint">重置将清空所有志愿；强制分配会立即按当前人数分配（无需满 14 人）。</p>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-secondary" id="resetBtn">重置</button>
+          <button type="button" class="btn btn-warning" id="forceAssignBtn">强制分配</button>
+        </div>
+        <p class="form-message" id="adminMessage"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
